@@ -1,0 +1,9 @@
+discovery:
+  services:
+    - exe_path: .*-service
+prometheus_export:
+  port: 9999
+  features:
+    - application
+    - application_process
+    - network
