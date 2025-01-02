@@ -9,6 +9,7 @@ kind load docker-image fosdem-2025/pricing-service
 
 kubectl create configmap beyla-config --from-file=./deploy/beyla-config.yaml
 kubectl create configmap prometheus-config --from-file=./deploy/prometheus-config.yaml
+kubectl create configmap load-generator --from-file=./deploy/load-generator.js
 
 kubectl apply \
 	-f ./deploy/inventory-service.yaml \
@@ -16,3 +17,4 @@ kubectl apply \
 	-f ./deploy/product-service.yaml \
 	-f ./deploy/beyla.yaml \
 	-f ./deploy/prometheus.yaml \
+	-f ./deploy/load-generator.yaml \
