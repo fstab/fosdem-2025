@@ -1,25 +1,28 @@
-apiVersion: batch/v1
-kind: CronJob
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: load-generator
+  labels:
+    app: load-generator
 spec:
-  # The following cron pattern means "once per minute".
-  schedule: "* * * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
     spec:
-      template:
-        spec:
-          containers:
-          - name: load-generator
-            image: grafana/k6:latest
-            imagePullPolicy: IfNotPresent
-            command: ["k6", "run", "/scripts/load-generator.js"]
-            volumeMounts:
-            - mountPath: /scripts
-              name: load-generator
-          restartPolicy: OnFailure
-          volumes:
-          - name: load-generator
-            configMap:
-              name: load-generator
+      containers:
+        - name: load-generator
+          image: grafana/k6
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "while true ; do k6 run /scripts/load-generator.js ; sleep 5 ; done"]
+          volumeMounts:
+          - mountPath: /scripts
+            name: load-generator
+      volumes:
+        - name: load-generator
+          configMap:
+            name: load-generator
