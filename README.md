@@ -16,3 +16,5 @@ kubectl port-forward $(kubectl get pods -lapp=grafana -o=name) 3000:3000
 ```
 
 Access Grafana on [http://localhost:3000](http://localhost:3000). Default username is _admin_ with password _admin_.
+
+Click on _Dashboards_ (menu on the left) -> _RED metrics_ (list of dashboards) to view an example RED metrics dashboard.
