@@ -6,8 +6,10 @@ import (
 	"github.com/fstab/fosdem-2025/internal/model/inventory"
 	"github.com/fstab/fosdem-2025/internal/model/pricing"
 	"github.com/fstab/fosdem-2025/internal/model/product"
+	"github.com/fstab/fosdem-2025/internal/util"
 	"log"
 	"net/http"
+	"sync"
 )
 
 const inventory_service_url = "http://inventory-service:8081"
@@ -20,7 +22,9 @@ Example query: <a href="/products?search=telescope">http://localhost:8080/produc
 </body></html>
 `
 
+// handler for the /products?search=... endpoint
 func searchHandler(w http.ResponseWriter, req *http.Request) {
+	util.Sleep()
 	searchString := req.URL.Query().Get("search")
 	if searchString == "" {
 		defaultHandler(w, req)
@@ -32,19 +36,11 @@ func searchHandler(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "failed to query the inventory serice: %s", err)
 		return
 	}
-	result := make([]product.Item, 0, len(inventoryItems))
-	for _, item := range inventoryItems {
-		price, err := queryPrice(item.Id)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "failed to query the pricing serice: %s", err)
-			return
-		}
-		result = append(result, product.Item{
-			Id:    item.Id,
-			Name:  item.Name,
-			Price: price,
-		})
+	result, err := queryPricesInParallel(inventoryItems)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "failed to query the pricing serice: %s", err)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(result)
@@ -53,6 +49,44 @@ func searchHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// query the pricing service for each inventory item
+func queryPricesInParallel(inventoryItems []inventory.Item) ([]product.Item, error) {
+	result := make([]product.Item, 0, len(inventoryItems))
+	pricingItems := make([]pricing.Price, len(inventoryItems))
+	pricingServiceErrors := make([]error, len(inventoryItems))
+	var wg sync.WaitGroup
+	wg.Add(len(inventoryItems))
+	for i, item := range inventoryItems {
+		go queryPrice(&wg, item.Id, pricingItems, pricingServiceErrors, i)
+	}
+	wg.Wait()
+	for i := 0; i < len(inventoryItems); i++ {
+		if pricingServiceErrors[i] != nil {
+			return nil, pricingServiceErrors[i]
+		} else {
+			result = append(result, product.Item{
+				Id:    inventoryItems[i].Id,
+				Name:  inventoryItems[i].Name,
+				Price: pricingItems[i].Price,
+			})
+		}
+	}
+	return result, nil
+}
+
+// query the pricing service for a single inventory item
+func queryPrice(wg *sync.WaitGroup, productId int, pricingItems []pricing.Price, pricingServiceErross []error, i int) {
+	price := pricing.Price{}
+	url := fmt.Sprintf("%s/prices/%d", pricing_service_url, productId)
+	if err := queryJsonData(url, &price); err != nil {
+		pricingServiceErross[i] = err
+	} else {
+		pricingItems[i] = price
+	}
+	wg.Done()
+}
+
+// GET request to the inventory service
 func searchInventory(searchString string) ([]inventory.Item, error) {
 	inventoryItems := []inventory.Item{}
 	url := fmt.Sprintf("%s/inventory?search=%s", inventory_service_url, searchString)
@@ -60,16 +94,6 @@ func searchInventory(searchString string) ([]inventory.Item, error) {
 		return nil, err
 	}
 	return inventoryItems, nil
-}
-
-func queryPrice(productId int) (float64, error) {
-	price := pricing.Price{}
-	url := fmt.Sprintf("%s/prices/%d", pricing_service_url, productId)
-	fmt.Println(url)
-	if err := queryJsonData(url, &price); err != nil {
-		return 0, err
-	}
-	return price.Price, nil
 }
 
 // Run an HTTP GET request and deserialize the JSON response into v.
@@ -104,6 +128,7 @@ func queryJsonData(url string, v any) error {
 }
 
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
+	util.Sleep()
 	_, err := w.Write([]byte(usage))
 	if err != nil {
 		log.Printf("failed to send response: %s", err)

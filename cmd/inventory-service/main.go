@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"github.com/fstab/fosdem-2025/internal/model/inventory"
+	"github.com/fstab/fosdem-2025/internal/util"
 	"log"
 	"net/http"
 )
@@ -15,6 +16,7 @@ Example query: <a href="/inventory?search=telescope">http://localhost:8081/inven
 `
 
 func searchHandler(w http.ResponseWriter, req *http.Request) {
+	util.Sleep()
 	searchString := req.URL.Query().Get("search")
 	if searchString == "" {
 		defaultHandler(w, req)
@@ -32,10 +34,14 @@ func search(searchString string) []inventory.Item {
 	return []inventory.Item{
 		{1, "Celestron", 3},
 		{2, "Meade", 7},
+		{3, "Astrosystems", 4},
+		{4, "Questar", 2},
+		{5, "Hubble Optics", 8},
 	}
 }
 
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
+	util.Sleep()
 	_, err := w.Write([]byte(usage))
 	if err != nil {
 		log.Printf("failed to send response: %s", err)
