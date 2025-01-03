@@ -1,9 +1,14 @@
 discovery:
   services:
     - exe_path: .*-service
+attributes:
+  kubernetes:
+    enable: true
 prometheus_export:
   port: 9999
   features:
     - application
     - application_process
     - network
+otel_traces_export:
+  endpoint: http://tempo:4318
