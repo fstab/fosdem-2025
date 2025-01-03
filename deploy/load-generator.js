@@ -7,5 +7,5 @@ export const options = {
 };
 
 export default function () {
-  http.get('http://product-service:8080?search=telescope');
+  http.get('http://product-service:8080/products?search=telescope');
 }
