@@ -9,7 +9,7 @@ import (
 	"github.com/fstab/fosdem-2025/internal/util"
 	"log"
 	"net/http"
-	"sync"
+	"strings"
 )
 
 const inventory_service_url = "http://inventory-service:8081"
@@ -51,39 +51,56 @@ func searchHandler(w http.ResponseWriter, req *http.Request) {
 
 // query the pricing service for each inventory item
 func queryPricesInParallel(inventoryItems []inventory.Item) ([]product.Item, error) {
-	result := make([]product.Item, 0, len(inventoryItems))
-	pricingItems := make([]pricing.Price, len(inventoryItems))
-	pricingServiceErrors := make([]error, len(inventoryItems))
-	var wg sync.WaitGroup
-	wg.Add(len(inventoryItems))
-	for i, item := range inventoryItems {
-		go queryPrice(&wg, item.Id, pricingItems, pricingServiceErrors, i)
+	prices := make(chan *pricing.Price)
+	errors := make(chan error)
+	for _, item := range inventoryItems {
+		go func() {
+			price, err := queryPrice(item.Id)
+			if err != nil {
+				errors <- err
+			} else {
+				prices <- price
+			}
+		}()
 	}
-	wg.Wait()
+	result := make([]product.Item, 0, len(inventoryItems))
 	for i := 0; i < len(inventoryItems); i++ {
-		if pricingServiceErrors[i] != nil {
-			return nil, pricingServiceErrors[i]
-		} else {
+		select {
+		case err := <-errors:
+			return nil, err
+		case price := <-prices:
+			item := findById(price.ProductID, inventoryItems)
+			if item == nil {
+				return nil, fmt.Errorf("pricing service returned a product with an unknown product id: %s", price.ProductID)
+			}
 			result = append(result, product.Item{
-				Id:    inventoryItems[i].Id,
-				Name:  inventoryItems[i].Name,
-				Price: pricingItems[i].Price,
+				Id:    item.Id,
+				Name:  item.Name,
+				Price: price.Price,
 			})
 		}
 	}
 	return result, nil
 }
 
+func findById(id string, items []inventory.Item) *inventory.Item {
+	for _, item := range items {
+		if strings.Compare(fmt.Sprintf("%d", item.Id), id) == 0 {
+			return &item
+		}
+	}
+	return nil
+}
+
 // query the pricing service for a single inventory item
-func queryPrice(wg *sync.WaitGroup, productId int, pricingItems []pricing.Price, pricingServiceErross []error, i int) {
+func queryPrice(productId int) (*pricing.Price, error) {
 	price := pricing.Price{}
 	url := fmt.Sprintf("%s/prices/%d", pricing_service_url, productId)
 	if err := queryJsonData(url, &price); err != nil {
-		pricingServiceErross[i] = err
+		return nil, err
 	} else {
-		pricingItems[i] = price
+		return &price, nil
 	}
-	wg.Done()
 }
 
 // GET request to the inventory service
