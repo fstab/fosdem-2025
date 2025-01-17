@@ -152,7 +152,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 24,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -173,7 +173,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "dashed"
             }
           },
           "mappings": [],
@@ -188,7 +188,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 0.2
               }
             ]
           },
@@ -281,7 +281,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 10
               }
             ]
           },
@@ -349,6 +349,7 @@
     }
   ],
   "preload": false,
+  "refresh": "5s",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
