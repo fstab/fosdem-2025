@@ -47,7 +47,7 @@ spec:
       serviceAccountName: beyla
       containers:
         - name: beyla
-          image: grafana/beyla:latest
+          image: grafana/beyla:main
           securityContext:
             privileged: true
             readOnlyRootFilesystem: true
